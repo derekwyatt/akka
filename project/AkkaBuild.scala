@@ -530,22 +530,20 @@ object AkkaBuild extends Build {
     // customization of sphinx @<key>@ replacements, add to all sphinx-using projects
     // add additional replacements here
     preprocessVars <<= (scalaVersion, version) { (s, v) =>
-      val BinVer = """(\d+\.\d+)\.\d+""".r
+      val binVer: Option[String] = {
+        val BV = """(\d+\.\d+)\.\d+""".r
+        s match {
+          case BV(bv) => Some(bv)
+          case _ => None
+        }
+      }
       Map(
         "version" -> v,
         "scalaVersion" -> s,
-        "crossString" -> (s match {
-            case BinVer(_) => ""
-            case _         => "cross CrossVersion.full"
-          }),
-        "jarName" -> (s match {
-            case BinVer(bv) => "akka-actor_" + bv + "-" + v + ".jar"
-            case _          => "akka-actor_" + s + "-" + v + ".jar"
-          }),
-        "binVersion" -> (s match {
-            case BinVer(bv) => bv
-            case _          => s
-          })
+        "crossString" -> (if(binVer.isDefined) "" else "cross CrossVersion.full"),
+        "jarName" -> "akka-actor_%s-%s.jar".format(binVer.getOrElse(s), v),
+        "binVersion" -> binVer.getOrElse(s),
+        "onlineAkkaScaladoc" -> "http://doc.akka.io/api/akka/%s/".format(if (v.endsWith("SNAPSHOT")) "snapshot" else v)
       )
     },
     preprocess <<= (sourceDirectory, target in preprocess, cacheDirectory, preprocessExts, preprocessVars, streams) map {
