@@ -16,6 +16,7 @@ import akka.http.scaladsl.model.{ StatusCodes, HttpResponse, HttpRequest }
 import akka.http.scaladsl.model.headers.{ Host, `Tls-Session-Info` }
 import org.scalatest.time.{ Span, Seconds }
 import scala.concurrent.Future
+import akka.http.scaladsl.util.SwedishArmyKnife
 
 class TlsEndpointVerificationSpec extends AkkaSpec("""
     akka.loglevel = INFO
@@ -107,7 +108,7 @@ class TlsEndpointVerificationSpec extends AkkaSpec("""
         .join(Flow[HttpRequest].map(handler))
 
     val client =
-      Http().clientLayer(Host(hostname, 8080))
+      Http().clientLayer(Host(hostname, 8080), swedish = SwedishArmyKnife.Nil)
         .atop(clientSideTls)
 
     client.join(server)

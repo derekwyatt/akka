@@ -14,6 +14,7 @@ import akka.http.scaladsl.model.ws.{ TextMessage, BinaryMessage, Message }
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl._
 import akka.util.ByteString
+import akka.http.scaladsl.util.SwedishArmyKnife
 
 import scala.concurrent.Future
 import scala.util.{ Failure, Success }
@@ -54,7 +55,7 @@ object EchoTestClientApp extends App {
 
   def echoClient = Flow.fromSinkAndSourceMat(sink, source)(Keep.left)
 
-  val (upgrade, res) = Http().singleWebSocketRequest("wss://echo.websocket.org", echoClient)
+  val (upgrade, res) = Http().singleWebSocketRequest("wss://echo.websocket.org", echoClient, swedish = SwedishArmyKnife.Nil)
   res onComplete {
     case Success(res) ⇒
       println("Run successful. Got these elements:")

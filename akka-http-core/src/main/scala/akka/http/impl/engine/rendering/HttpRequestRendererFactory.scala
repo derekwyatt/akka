@@ -15,6 +15,7 @@ import akka.event.LoggingAdapter
 import akka.util.ByteString
 import akka.stream.scaladsl.Source
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.util.SwedishArmyKnife
 import akka.http.impl.util._
 import RenderSupport._
 import headers._
@@ -25,7 +26,8 @@ import headers._
 private[http] class HttpRequestRendererFactory(
   userAgentHeader:       Option[headers.`User-Agent`],
   requestHeaderSizeHint: Int,
-  log:                   LoggingAdapter) {
+  log:                   LoggingAdapter,
+  swedish:               SwedishArmyKnife) {
   import HttpRequestRendererFactory.RequestRenderingOutput
 
   def renderToSource(ctx: RequestRenderingContext): Source[ByteString, Any] = render(ctx).byteStream
@@ -45,7 +47,7 @@ private[http] class HttpRequestRendererFactory(
       r ~~ ' ' ~~ protocol ~~ CrLf
     }
 
-    def render(h: HttpHeader) = r ~~ h ~~ CrLf
+    def render(h: HttpHeader) = swedish.transformHeader(r, h)
 
     @tailrec def renderHeaders(remaining: List[HttpHeader], hostHeaderSeen: Boolean = false,
                                userAgentSeen: Boolean = false, transferEncodingSeen: Boolean = false): Unit =
@@ -152,8 +154,8 @@ private[http] class HttpRequestRendererFactory(
 }
 
 private[http] object HttpRequestRendererFactory {
-  def renderStrict(ctx: RequestRenderingContext, settings: ClientConnectionSettings, log: LoggingAdapter): ByteString =
-    new HttpRequestRendererFactory(settings.userAgentHeader, settings.requestHeaderSizeHint, log).renderStrict(ctx)
+  def renderStrict(ctx: RequestRenderingContext, settings: ClientConnectionSettings, log: LoggingAdapter, swedish: SwedishArmyKnife): ByteString =
+    new HttpRequestRendererFactory(settings.userAgentHeader, settings.requestHeaderSizeHint, log, swedish).renderStrict(ctx)
 
   sealed trait RequestRenderingOutput {
     def byteStream: Source[ByteString, Any]

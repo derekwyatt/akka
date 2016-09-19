@@ -18,6 +18,7 @@ import akka.http.scaladsl.settings.ClientConnectionSettings
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ HttpMethods, HttpResponse }
 import akka.http.scaladsl.model.headers.Host
+import akka.http.scaladsl.util.SwedishArmyKnife
 import akka.http.impl.engine.parsing.HttpMessageParser.StateResult
 import akka.http.impl.engine.parsing.ParserOutput.{ NeedMoreData, RemainingBytes, ResponseStart }
 import akka.http.impl.engine.parsing.{ HttpHeaderParser, HttpResponseParser, ParserOutput }
@@ -33,8 +34,9 @@ object WebSocketClientBlueprint {
   def apply(
     request:  WebSocketRequest,
     settings: ClientConnectionSettings,
-    log:      LoggingAdapter): Http.WebSocketClientLayer =
-    (simpleTls.atopMat(handshake(request, settings, log))(Keep.right) atop
+    log:      LoggingAdapter,
+    swedish:  SwedishArmyKnife): Http.WebSocketClientLayer =
+    (simpleTls.atopMat(handshake(request, settings, log, swedish))(Keep.right) atop
       WebSocket.framing atop
       WebSocket.stack(serverSide = false, maskingRandomFactory = settings.websocketRandomFactory, log = log)).reversed
 
@@ -45,7 +47,8 @@ object WebSocketClientBlueprint {
   def handshake(
     request:  WebSocketRequest,
     settings: ClientConnectionSettings,
-    log:      LoggingAdapter): BidiFlow[ByteString, ByteString, ByteString, ByteString, Future[WebSocketUpgradeResponse]] = {
+    log:      LoggingAdapter,
+    swedish:  SwedishArmyKnife): BidiFlow[ByteString, ByteString, ByteString, ByteString, Future[WebSocketUpgradeResponse]] = {
     import request._
     val result = Promise[WebSocketUpgradeResponse]()
 
@@ -54,7 +57,7 @@ object WebSocketClientBlueprint {
     val (initialRequest, key) = Handshake.Client.buildRequest(uri, extraHeaders, subprotocol.toList, settings.websocketRandomFactory())
     val hostHeader = Host(uri.authority.normalizedFor(uri.scheme))
     val renderedInitialRequest =
-      HttpRequestRendererFactory.renderStrict(RequestRenderingContext(initialRequest, hostHeader), settings, log)
+      HttpRequestRendererFactory.renderStrict(RequestRenderingContext(initialRequest, hostHeader), settings, log, swedish)
 
     class UpgradeStage extends SimpleLinearGraphStage[ByteString] {
 

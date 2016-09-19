@@ -12,6 +12,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.Uri.apply
 import akka.http.scaladsl.model.ws._
+import akka.http.scaladsl.util.SwedishArmyKnife
 import akka.stream._
 import akka.stream.scaladsl._
 import akka.stream.testkit._
@@ -48,7 +49,8 @@ class WebSocketIntegrationSpec extends AkkaSpec("akka.stream.materializer.debug.
 
       val (response, sink) = Http().singleWebSocketRequest(
         WebSocketRequest("ws://127.0.0.1:" + myPort),
-        Flow.fromSinkAndSourceMat(TestSink.probe[Message], Source.empty)(Keep.left))
+        Flow.fromSinkAndSourceMat(TestSink.probe[Message], Source.empty)(Keep.left),
+        swedish = SwedishArmyKnife.Nil)
 
       response.futureValue.response.status.isSuccess should ===(true)
       sink
@@ -101,7 +103,7 @@ class WebSocketIntegrationSpec extends AkkaSpec("akka.stream.materializer.debug.
       val ((response, breaker), sink) =
         Source.empty
           .viaMat {
-            Http().webSocketClientLayer(WebSocketRequest("ws://localhost:" + myPort))
+            Http().webSocketClientLayer(WebSocketRequest("ws://localhost:" + myPort), swedish = SwedishArmyKnife.Nil)
               .atop(TLSPlacebo())
               .joinMat(completeOnlySwitch.via(
                 Tcp().outgoingConnection(new InetSocketAddress("localhost", myPort), halfClose = true)))(Keep.both)
@@ -143,7 +145,7 @@ class WebSocketIntegrationSpec extends AkkaSpec("akka.stream.materializer.debug.
           WebSocketRequest("ws://127.0.0.1:" + myPort),
           Flow.fromSinkAndSourceMat(
             Sink.fold(0)((n, _: Message) ⇒ n + 1),
-            Source.repeat(TextMessage("hello")).take(N))(Keep.left))
+            Source.repeat(TextMessage("hello")).take(N))(Keep.left), swedish = SwedishArmyKnife.Nil)
         count.futureValue should ===(N)
       }
 
@@ -181,7 +183,7 @@ class WebSocketIntegrationSpec extends AkkaSpec("akka.stream.materializer.debug.
       val (switch, completion) =
         Source.maybe
           .viaMat {
-            Http().webSocketClientLayer(WebSocketRequest("ws://localhost:" + myPort))
+            Http().webSocketClientLayer(WebSocketRequest("ws://localhost:" + myPort), swedish = SwedishArmyKnife.Nil)
               .atop(TLSPlacebo())
               // the resource leak of #19398 existed only for severed websocket connections
               .atopMat(KillSwitches.singleBidi[ByteString, ByteString])(Keep.right)
@@ -203,7 +205,7 @@ class WebSocketIntegrationSpec extends AkkaSpec("akka.stream.materializer.debug.
     "fail the materialized future if the request fails" in {
       val flow = Http().webSocketClientFlow(
         WebSocketRequest("ws://127.0.0.1:65535/no/server/here"),
-        settings = ClientConnectionSettings(system).withConnectingTimeout(250.millis))
+        settings = ClientConnectionSettings(system).withConnectingTimeout(250.millis), swedish = SwedishArmyKnife.Nil)
 
       val future = Source.maybe[Message].viaMat(flow)(Keep.right).toMat(Sink.ignore)(Keep.left).run()
       import system.dispatcher

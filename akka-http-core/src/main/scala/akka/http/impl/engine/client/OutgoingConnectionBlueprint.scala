@@ -4,27 +4,28 @@
 
 package akka.http.impl.engine.client
 
-import akka.NotUsed
-import akka.http.scaladsl.settings.{ ClientConnectionSettings, ParserSettings }
-import akka.stream.impl.ConstantFun
-import language.existentials
-import scala.annotation.tailrec
-import scala.concurrent.Promise
-import scala.collection.mutable.ListBuffer
-import akka.stream.TLSProtocol._
-import akka.util.ByteString
 import akka.event.LoggingAdapter
-import akka.stream._
-import akka.stream.scaladsl._
+import akka.http.impl.engine.parsing._
+import akka.http.impl.engine.rendering.{ RequestRenderingContext, HttpRequestRendererFactory }
+import akka.http.impl.util._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers
 import akka.http.scaladsl.model.{ IllegalResponseException, HttpRequest, HttpResponse, ResponseEntity }
-import akka.http.impl.engine.rendering.{ RequestRenderingContext, HttpRequestRendererFactory }
-import akka.http.impl.engine.parsing._
-import akka.http.impl.util._
+import akka.http.scaladsl.settings.{ ClientConnectionSettings, ParserSettings }
+import akka.http.scaladsl.util.SwedishArmyKnife
+import akka.NotUsed
+import akka.stream._
+import akka.stream.impl.ConstantFun
+import akka.stream.scaladsl._
 import akka.stream.stage.GraphStage
 import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.{ InHandler, OutHandler }
+import akka.stream.TLSProtocol._
+import akka.util.ByteString
+import language.existentials
+import scala.annotation.tailrec
+import scala.collection.mutable.ListBuffer
+import scala.concurrent.Promise
 
 /**
  * INTERNAL API
@@ -53,7 +54,8 @@ private[http] object OutgoingConnectionBlueprint {
   def apply(
     hostHeader: headers.Host,
     settings:   ClientConnectionSettings,
-    log:        LoggingAdapter): Http.ClientLayer = {
+    log:        LoggingAdapter,
+    swedish:    SwedishArmyKnife): Http.ClientLayer = {
     import settings._
 
     val core = BidiFlow.fromGraph(GraphDSL.create() { implicit b ⇒
@@ -72,7 +74,7 @@ private[http] object OutgoingConnectionBlueprint {
       val terminationMerge = b.add(TerminationMerge)
 
       val requestRendering: Flow[RequestRenderingContext, ByteString, NotUsed] = {
-        val requestRendererFactory = new HttpRequestRendererFactory(userAgentHeader, requestHeaderSizeHint, log)
+        val requestRendererFactory = new HttpRequestRendererFactory(userAgentHeader, requestHeaderSizeHint, log, swedish)
         Flow[RequestRenderingContext].flatMapConcat(requestRendererFactory.renderToSource).named("renderer")
       }
 

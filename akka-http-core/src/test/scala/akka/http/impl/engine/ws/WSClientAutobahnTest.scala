@@ -18,6 +18,7 @@ import akka.stream.scaladsl._
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.model.ws._
+import akka.http.scaladsl.util.SwedishArmyKnife
 
 object WSClientAutobahnTest extends App {
   implicit val system = ActorSystem()
@@ -165,7 +166,7 @@ object WSClientAutobahnTest extends App {
   system.scheduler.scheduleOnce(60.seconds)(system.terminate())
 
   def runWs[T](uri: Uri, clientFlow: Flow[Message, Message, T]): T =
-    Http().singleWebSocketRequest(uri, clientFlow)._2
+    Http().singleWebSocketRequest(uri, clientFlow, swedish = SwedishArmyKnife.Nil)._2
 
   def completionSignal[T]: Flow[T, T, Future[Unit]] =
     Flow[T].transformMaterializing { () ⇒

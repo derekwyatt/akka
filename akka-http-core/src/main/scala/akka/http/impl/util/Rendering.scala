@@ -76,11 +76,11 @@ private[http] trait SingletonValueRenderable extends Product with Renderable {
  *
  * A typeclass for rendering values.
  */
-private[http] trait Renderer[-T] {
+trait Renderer[-T] {
   def render[R <: Rendering](r: R, value: T): r.type
 }
 
-private[http] object Renderer {
+object Renderer {
   implicit object CharRenderer extends Renderer[Char] {
     def render[R <: Rendering](r: R, value: Char): r.type = r ~~ value
   }
@@ -140,7 +140,7 @@ private[http] object Renderer {
  *
  * The interface for a rendering sink. Implemented for several serialization targets.
  */
-private[http] trait Rendering {
+trait Rendering {
   def ~~(ch: Char): this.type
   def ~~(bytes: Array[Byte]): this.type
   def ~~(bytes: ByteString): this.type
@@ -224,7 +224,7 @@ private[http] object Rendering {
 /**
  * INTERNAL API
  */
-private[http] class StringRendering extends Rendering {
+class StringRendering extends Rendering {
   private[this] val sb = new java.lang.StringBuilder
   def ~~(ch: Char): this.type = { sb.append(ch); this }
   def ~~(bytes: Array[Byte]): this.type = {

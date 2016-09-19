@@ -21,6 +21,7 @@ import akka.http.scaladsl.model.HttpMethods._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{ Accept, Age, Date, Host, Server, `User-Agent` }
 import akka.http.scaladsl.settings.{ ConnectionPoolSettings, ClientConnectionSettings, ServerSettings }
+import akka.http.scaladsl.util.SwedishArmyKnife
 import akka.stream.scaladsl._
 import akka.stream.stage.{ GraphStage, GraphStageLogic, InHandler, OutHandler }
 import akka.stream.testkit._
@@ -97,7 +98,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       for (i ← 1 to 10)
         withClue(s"iterator $i: ") {
           Source.single(HttpRequest(HttpMethods.POST, "/test", List.empty, HttpEntity(MediaTypes.`text/plain`.withCharset(HttpCharsets.`UTF-8`), "buh")))
-            .via(Http(actorSystem).outgoingConnection("localhost", 7777))
+            .via(Http(actorSystem).outgoingConnection("localhost", 7777, swedish = SwedishArmyKnife.Nil))
             .runWith(Sink.head)
             .failed
             .futureValue shouldBe a[StreamTcpException]
@@ -109,7 +110,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val binding = Http().bindAndHandleSync(_ ⇒ HttpResponse(), hostname, port)
       val b1 = Await.result(binding, 3.seconds)
 
-      val (_, f) = Http().outgoingConnection(hostname, port)
+      val (_, f) = Http().outgoingConnection(hostname, port, swedish = SwedishArmyKnife.Nil)
         .runWith(Source.single(HttpRequest(uri = "/abc")), Sink.head)
 
       Await.result(f, 1.second)
@@ -138,7 +139,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val b1 = Await.result(binding, 3.seconds)
 
       def runRequest(uri: Uri): Unit =
-        Http().outgoingConnection(hostname, port)
+        Http().outgoingConnection(hostname, port, swedish = SwedishArmyKnife.Nil)
           .runWith(Source.single(HttpRequest(uri = uri)), Sink.head)
 
       runRequest("/slow")
@@ -182,7 +183,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           try {
             def runIdleRequest(uri: Uri): Future[HttpResponse] = {
               val itNeverEnds = Chunked.fromData(ContentTypes.`text/plain(UTF-8)`, Source.maybe[ByteString])
-              Http().outgoingConnection(hostname, port)
+              Http().outgoingConnection(hostname, port, swedish = SwedishArmyKnife.Nil)
                 .runWith(Source.single(HttpRequest(PUT, uri, entity = itNeverEnds)), Sink.head)
                 ._2
             }
@@ -216,7 +217,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           try {
             def runRequest(uri: Uri): Future[HttpResponse] = {
               val itNeverSends = Chunked.fromData(ContentTypes.`text/plain(UTF-8)`, Source.maybe[ByteString])
-              Http().outgoingConnection(hostname, port, settings = clientSettings)
+              Http().outgoingConnection(hostname, port, settings = clientSettings, swedish = SwedishArmyKnife.Nil)
                 .runWith(Source.single(HttpRequest(POST, uri, entity = itNeverSends)), Sink.head)
                 ._2
             }
@@ -316,7 +317,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
         EventFilter[RuntimeException](message = "BOOM", occurrences = 1).intercept {
           val (_, responseFuture) =
-            Http(system2).outgoingConnection(hostname, port).runWith(Source.single(HttpRequest()), Sink.head)(materializer2)
+            Http(system2).outgoingConnection(hostname, port, swedish = SwedishArmyKnife.Nil).runWith(Source.single(HttpRequest()), Sink.head)(materializer2)
           try Await.result(responseFuture, 5.second).status should ===(StatusCodes.InternalServerError)
           catch {
             case _: StreamTcpException ⇒
@@ -337,7 +338,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
         EventFilter[RuntimeException](message = "BOOM", occurrences = 1).intercept {
           val (_, responseFuture) =
-            Http(system2).outgoingConnection(hostname, port).runWith(Source.single(HttpRequest()), Sink.head)(materializer2)
+            Http(system2).outgoingConnection(hostname, port, swedish = SwedishArmyKnife.Nil).runWith(Source.single(HttpRequest()), Sink.head)(materializer2)
           try Await.result(responseFuture, 5.seconds).status should ===(StatusCodes.InternalServerError)
           catch {
             case _: StreamTcpException ⇒
@@ -379,7 +380,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           socket.close()
         }
 
-        def performValidRequest() = Http().outgoingConnection(hostname, port).runWith(Source.single(HttpRequest()), Sink.ignore)
+        def performValidRequest() = Http().outgoingConnection(hostname, port, swedish = SwedishArmyKnife.Nil).runWith(Source.single(HttpRequest()), Sink.ignore)
 
         def assertCounters(stage: Int, cancel: Int) = eventually(timeout(1.second)) {
           stageCounter.get shouldEqual stage
@@ -528,7 +529,7 @@ class ClientServerSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val responseSubscriberProbe = TestSubscriber.manualProbe[HttpResponse]()
 
       val connectionFuture = Source.fromPublisher(requestPublisherProbe)
-        .viaMat(Http().outgoingConnection(hostname, port, settings = settings))(Keep.right)
+        .viaMat(Http().outgoingConnection(hostname, port, settings = settings, swedish = SwedishArmyKnife.Nil))(Keep.right)
         .to(Sink.fromSubscriber(responseSubscriberProbe)).run()
 
       val connection = Await.result(connectionFuture, 3.seconds)

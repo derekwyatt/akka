@@ -15,6 +15,7 @@ import akka.actor.{ ActorSystem, UnhandledMessage }
 import akka.stream.{ ActorMaterializer, IOResult }
 import akka.stream.scaladsl.{ FileIO, Sink, Source }
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.util.SwedishArmyKnife
 import akka.http.impl.util._
 import akka.util.ByteString
 
@@ -42,7 +43,7 @@ object TestClient extends App {
   def fetchServerVersion1(): Unit = {
     println(s"Fetching HTTPS server version of host `$host` via a direct low-level connection ...")
 
-    val connection = Http().outgoingConnectionHttps(host)
+    val connection = Http().outgoingConnectionHttps(host, swedish = SwedishArmyKnife.Nil)
     val result = Source.single(HttpRequest()).via(connection).runWith(Sink.head)
     result.map(_.header[headers.Server]) onComplete {
       case Success(res) ⇒

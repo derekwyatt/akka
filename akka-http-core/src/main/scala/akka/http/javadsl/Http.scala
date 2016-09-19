@@ -13,6 +13,7 @@ import akka.http.javadsl.settings.{ ConnectionPoolSettings, ClientConnectionSett
 import akka.{ NotUsed, stream }
 import akka.stream.TLSProtocol._
 import com.typesafe.sslconfig.akka.AkkaSSLConfig
+import akka.http.scaladsl.util.SwedishArmyKnife
 import scala.concurrent.Future
 import scala.util.Try
 import akka.stream.scaladsl.Keep
@@ -287,16 +288,17 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
   /**
    * Constructs a client layer stage using the configured default [[akka.http.javadsl.settings.ClientConnectionSettings]].
    */
-  def clientLayer(hostHeader: headers.Host): BidiFlow[HttpRequest, SslTlsOutbound, SslTlsInbound, HttpResponse, NotUsed] =
-    adaptClientLayer(delegate.clientLayer(JavaMapping.toScala(hostHeader)))
+  def clientLayer(hostHeader: headers.Host, swedish: SwedishArmyKnife): BidiFlow[HttpRequest, SslTlsOutbound, SslTlsInbound, HttpResponse, NotUsed] =
+    adaptClientLayer(delegate.clientLayer(JavaMapping.toScala(hostHeader), swedish))
 
   /**
    * Constructs a client layer stage using the given [[akka.http.javadsl.settings.ClientConnectionSettings]].
    */
   def clientLayer(
     hostHeader: headers.Host,
-    settings:   ClientConnectionSettings): BidiFlow[HttpRequest, SslTlsOutbound, SslTlsInbound, HttpResponse, NotUsed] =
-    adaptClientLayer(delegate.clientLayer(JavaMapping.toScala(hostHeader), settings.asScala))
+    settings:   ClientConnectionSettings,
+    swedish:    SwedishArmyKnife): BidiFlow[HttpRequest, SslTlsOutbound, SslTlsInbound, HttpResponse, NotUsed] =
+    adaptClientLayer(delegate.clientLayer(JavaMapping.toScala(hostHeader), settings.asScala, swedish = swedish))
 
   /**
    * Constructs a client layer stage using the given [[ClientConnectionSettings]].
@@ -304,8 +306,9 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
   def clientLayer(
     hostHeader: headers.Host,
     settings:   ClientConnectionSettings,
-    log:        LoggingAdapter): BidiFlow[HttpRequest, SslTlsOutbound, SslTlsInbound, HttpResponse, NotUsed] =
-    adaptClientLayer(delegate.clientLayer(JavaMapping.toScala(hostHeader), settings.asScala, log))
+    log:        LoggingAdapter,
+    swedish:    SwedishArmyKnife): BidiFlow[HttpRequest, SslTlsOutbound, SslTlsInbound, HttpResponse, NotUsed] =
+    adaptClientLayer(delegate.clientLayer(JavaMapping.toScala(hostHeader), settings.asScala, log, swedish))
 
   /**
    * Creates a [[Flow]] representing a prospective HTTP client connection to the given endpoint.
@@ -313,8 +316,8 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
    *
    * If the hostname is given with an `https://` prefix, the default [[HttpsConnectionContext]] will be used.
    */
-  def outgoingConnection(host: String): Flow[HttpRequest, HttpResponse, CompletionStage[OutgoingConnection]] =
-    outgoingConnection(ConnectHttp.toHost(host))
+  def outgoingConnection(host: String, swedish: SwedishArmyKnife): Flow[HttpRequest, HttpResponse, CompletionStage[OutgoingConnection]] =
+    outgoingConnection(ConnectHttp.toHost(host), swedish = swedish)
 
   /**
    * Creates a [[Flow]] representing a prospective HTTP client connection to the given endpoint.
@@ -322,10 +325,10 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
    *
    * Use the [[ConnectHttp]] DSL to configure target host and whether HTTPS should be used.
    */
-  def outgoingConnection(to: ConnectHttp): Flow[HttpRequest, HttpResponse, CompletionStage[OutgoingConnection]] =
+  def outgoingConnection(to: ConnectHttp, swedish: SwedishArmyKnife): Flow[HttpRequest, HttpResponse, CompletionStage[OutgoingConnection]] =
     adaptOutgoingFlow {
-      if (to.isHttps) delegate.outgoingConnectionHttps(to.host, to.port, to.effectiveHttpsConnectionContext(defaultClientHttpsContext).asScala)
-      else delegate.outgoingConnection(to.host, to.port)
+      if (to.isHttps) delegate.outgoingConnectionHttps(to.host, to.port, to.effectiveHttpsConnectionContext(defaultClientHttpsContext).asScala, swedish = swedish)
+      else delegate.outgoingConnection(to.host, to.port, swedish = swedish)
     }
 
   /**
@@ -336,12 +339,13 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
     to:           ConnectHttp,
     localAddress: Optional[InetSocketAddress],
     settings:     ClientConnectionSettings,
-    log:          LoggingAdapter): Flow[HttpRequest, HttpResponse, CompletionStage[OutgoingConnection]] =
+    log:          LoggingAdapter,
+    swedish:      SwedishArmyKnife): Flow[HttpRequest, HttpResponse, CompletionStage[OutgoingConnection]] =
     adaptOutgoingFlow {
       if (to.isHttps)
-        delegate.outgoingConnectionHttps(to.host, to.port, to.effectiveConnectionContext(defaultClientHttpsContext).asInstanceOf[HttpsConnectionContext].asScala, localAddress.asScala, settings.asScala, log)
+        delegate.outgoingConnectionHttps(to.host, to.port, to.effectiveConnectionContext(defaultClientHttpsContext).asInstanceOf[HttpsConnectionContext].asScala, localAddress.asScala, settings.asScala, log, swedish = swedish)
       else
-        delegate.outgoingConnection(to.host, to.port, localAddress.asScala, settings.asScala, log)
+        delegate.outgoingConnection(to.host, to.port, localAddress.asScala, settings.asScala, log, swedish = swedish)
     }
 
   /**
@@ -551,19 +555,8 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
    *
    * The layer is not reusable and must only be materialized once.
    */
-  def webSocketClientLayer(request: WebSocketRequest): BidiFlow[Message, SslTlsOutbound, SslTlsInbound, Message, CompletionStage[WebSocketUpgradeResponse]] =
-    adaptWsBidiFlow(delegate.webSocketClientLayer(request.asScala))
-
-  /**
-   * Constructs a WebSocket [[BidiFlow]] using the configured default [[ClientConnectionSettings]],
-   * configured using the `akka.http.client` config section.
-   *
-   * The layer is not reusable and must only be materialized once.
-   */
-  def webSocketClientLayer(
-    request:  WebSocketRequest,
-    settings: ClientConnectionSettings): BidiFlow[Message, SslTlsOutbound, SslTlsInbound, Message, CompletionStage[WebSocketUpgradeResponse]] =
-    adaptWsBidiFlow(delegate.webSocketClientLayer(request.asScala, settings.asScala))
+  def webSocketClientLayer(request: WebSocketRequest, swedish: SwedishArmyKnife): BidiFlow[Message, SslTlsOutbound, SslTlsInbound, Message, CompletionStage[WebSocketUpgradeResponse]] =
+    adaptWsBidiFlow(delegate.webSocketClientLayer(request.asScala, swedish = swedish))
 
   /**
    * Constructs a WebSocket [[BidiFlow]] using the configured default [[ClientConnectionSettings]],
@@ -574,17 +567,30 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
   def webSocketClientLayer(
     request:  WebSocketRequest,
     settings: ClientConnectionSettings,
-    log:      LoggingAdapter): BidiFlow[Message, SslTlsOutbound, SslTlsInbound, Message, CompletionStage[WebSocketUpgradeResponse]] =
-    adaptWsBidiFlow(delegate.webSocketClientLayer(request.asScala, settings.asScala, log))
+    swedish:  SwedishArmyKnife): BidiFlow[Message, SslTlsOutbound, SslTlsInbound, Message, CompletionStage[WebSocketUpgradeResponse]] =
+    adaptWsBidiFlow(delegate.webSocketClientLayer(request.asScala, settings.asScala, swedish = swedish))
+
+  /**
+   * Constructs a WebSocket [[BidiFlow]] using the configured default [[ClientConnectionSettings]],
+   * configured using the `akka.http.client` config section.
+   *
+   * The layer is not reusable and must only be materialized once.
+   */
+  def webSocketClientLayer(
+    request:  WebSocketRequest,
+    settings: ClientConnectionSettings,
+    log:      LoggingAdapter,
+    swedish:  SwedishArmyKnife): BidiFlow[Message, SslTlsOutbound, SslTlsInbound, Message, CompletionStage[WebSocketUpgradeResponse]] =
+    adaptWsBidiFlow(delegate.webSocketClientLayer(request.asScala, settings.asScala, log, swedish = swedish))
 
   /**
    * Constructs a flow that once materialized establishes a WebSocket connection to the given Uri.
    *
    * The layer is not reusable and must only be materialized once.
    */
-  def webSocketClientFlow(request: WebSocketRequest): Flow[Message, Message, CompletionStage[WebSocketUpgradeResponse]] =
+  def webSocketClientFlow(request: WebSocketRequest, swedish: SwedishArmyKnife): Flow[Message, Message, CompletionStage[WebSocketUpgradeResponse]] =
     adaptWsFlow {
-      delegate.webSocketClientFlow(request.asScala)
+      delegate.webSocketClientFlow(request.asScala, swedish = swedish)
     }
 
   /**
@@ -597,9 +603,10 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
     connectionContext: ConnectionContext,
     localAddress:      Optional[InetSocketAddress],
     settings:          ClientConnectionSettings,
-    log:               LoggingAdapter): Flow[Message, Message, CompletionStage[WebSocketUpgradeResponse]] =
+    log:               LoggingAdapter,
+    swedish:           SwedishArmyKnife): Flow[Message, Message, CompletionStage[WebSocketUpgradeResponse]] =
     adaptWsFlow {
-      delegate.webSocketClientFlow(request.asScala, connectionContext.asScala, localAddress.asScala, settings.asScala, log)
+      delegate.webSocketClientFlow(request.asScala, swedish, connectionContext.asScala, localAddress.asScala, settings.asScala, log)
     }
 
   /**
@@ -611,11 +618,13 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
   def singleWebSocketRequest[T](
     request:      WebSocketRequest,
     clientFlow:   Flow[Message, Message, T],
-    materializer: Materializer): Pair[CompletionStage[WebSocketUpgradeResponse], T] =
+    materializer: Materializer,
+    swedish:      SwedishArmyKnife): Pair[CompletionStage[WebSocketUpgradeResponse], T] =
     adaptWsResultTuple {
       delegate.singleWebSocketRequest(
         request.asScala,
-        adaptWsFlow[T](clientFlow))(materializer)
+        adaptWsFlow[T](clientFlow),
+        swedish)(materializer)
     }
 
   /**
@@ -628,11 +637,13 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
     request:           WebSocketRequest,
     clientFlow:        Flow[Message, Message, T],
     connectionContext: ConnectionContext,
-    materializer:      Materializer): Pair[CompletionStage[WebSocketUpgradeResponse], T] =
+    materializer:      Materializer,
+    swedish:           SwedishArmyKnife): Pair[CompletionStage[WebSocketUpgradeResponse], T] =
     adaptWsResultTuple {
       delegate.singleWebSocketRequest(
         request.asScala,
         adaptWsFlow[T](clientFlow),
+        swedish,
         connectionContext.asScala)(materializer)
     }
 
@@ -647,11 +658,13 @@ class Http(system: ExtendedActorSystem) extends akka.actor.Extension {
     localAddress:      Optional[InetSocketAddress],
     settings:          ClientConnectionSettings,
     log:               LoggingAdapter,
-    materializer:      Materializer): Pair[CompletionStage[WebSocketUpgradeResponse], T] =
+    materializer:      Materializer,
+    swedish:           SwedishArmyKnife): Pair[CompletionStage[WebSocketUpgradeResponse], T] =
     adaptWsResultTuple {
       delegate.singleWebSocketRequest(
         request.asScala,
         adaptWsFlow[T](clientFlow),
+        swedish,
         connectionContext.asScala,
         localAddress.asScala,
         settings.asScala,

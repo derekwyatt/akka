@@ -14,6 +14,7 @@ import akka.stream.actor.{ ActorPublisher, ActorSubscriber, ZeroRequestStrategy 
 import akka.stream.impl.{ Buffer, SeqActorName }
 import akka.stream.scaladsl.{ Flow, Keep, Sink, Source }
 import akka.stream.{ BufferOverflowException, Materializer }
+import akka.http.scaladsl.util.SwedishArmyKnife
 
 import scala.annotation.tailrec
 import scala.concurrent.Promise
@@ -26,7 +27,7 @@ private object PoolInterfaceActor {
 
   val name = SeqActorName("PoolInterfaceActor")
 
-  def props(gateway: PoolGateway)(implicit fm: Materializer) = Props(new PoolInterfaceActor(gateway)).withDeploy(Deploy.local)
+  def props(gateway: PoolGateway, swedish: SwedishArmyKnife)(implicit fm: Materializer) = Props(new PoolInterfaceActor(gateway, swedish)).withDeploy(Deploy.local)
 }
 
 /**
@@ -43,7 +44,7 @@ private object PoolInterfaceActor {
  *   To the inside (i.e. the running connection pool flow) the gateway actor acts as request source
  *   (ActorPublisher) and response sink (ActorSubscriber).
  */
-private class PoolInterfaceActor(gateway: PoolGateway)(implicit fm: Materializer)
+private class PoolInterfaceActor(gateway: PoolGateway, swedish: SwedishArmyKnife)(implicit fm: Materializer)
   extends ActorSubscriber with ActorPublisher[RequestContext] with ActorLogging {
   import PoolInterfaceActor._
 
@@ -62,8 +63,8 @@ private class PoolInterfaceActor(gateway: PoolGateway)(implicit fm: Materializer
     import setup._
 
     val connectionFlow = connectionContext match {
-      case httpsContext: HttpsConnectionContext ⇒ Http().outgoingConnectionHttps(host, port, httpsContext, None, settings.connectionSettings, setup.log)
-      case _                                    ⇒ Http().outgoingConnection(host, port, None, settings.connectionSettings, setup.log)
+      case httpsContext: HttpsConnectionContext ⇒ Http().outgoingConnectionHttps(host, port, httpsContext, None, settings.connectionSettings, setup.log, swedish)
+      case _                                    ⇒ Http().outgoingConnection(host, port, None, settings.connectionSettings, setup.log, swedish)
     }
 
     val poolFlow =

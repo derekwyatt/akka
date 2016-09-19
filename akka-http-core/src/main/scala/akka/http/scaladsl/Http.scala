@@ -11,9 +11,9 @@ import javax.net.ssl._
 import akka.actor._
 import akka.dispatch.ExecutionContexts
 import akka.event.{ Logging, LoggingAdapter }
-import akka.http.impl.engine.HttpConnectionTimeoutException
-import akka.http.impl.engine.client.PoolMasterActor.{ PoolSize, ShutdownAll }
 import akka.http.impl.engine.client._
+import akka.http.impl.engine.client.PoolMasterActor.{ PoolSize, ShutdownAll }
+import akka.http.impl.engine.HttpConnectionTimeoutException
 import akka.http.impl.engine.server._
 import akka.http.impl.engine.ws.WebSocketClientBlueprint
 import akka.http.impl.settings.{ ConnectionPoolSetup, HostConnectionPoolSetup }
@@ -22,21 +22,21 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Host
 import akka.http.scaladsl.model.ws.{ Message, WebSocketRequest, WebSocketUpgradeResponse }
 import akka.http.scaladsl.settings.{ ClientConnectionSettings, ConnectionPoolSettings, ServerSettings }
-import akka.http.scaladsl.util.FastFuture
-import akka.{ Done, NotUsed }
+import akka.http.scaladsl.util.{ FastFuture, SwedishArmyKnife }
 import akka.stream._
-import akka.stream.TLSProtocol._
 import akka.stream.scaladsl._
+import akka.stream.TLSProtocol._
 import akka.util.ByteString
+import akka.{ Done, NotUsed }
 import com.typesafe.config.Config
 import com.typesafe.sslconfig.akka._
 import com.typesafe.sslconfig.akka.util.AkkaLoggerFactory
 import com.typesafe.sslconfig.ssl.ConfigSSLContextBuilder
 
-import scala.concurrent._
-import scala.util.Try
-import scala.util.control.NonFatal
 import scala.compat.java8.FutureConverters._
+import scala.concurrent._
+import scala.util.control.NonFatal
+import scala.util.Try
 
 class HttpExt(private val config: Config)(implicit val system: ActorSystem) extends akka.actor.Extension
   with DefaultSSLContextCreation {
@@ -244,8 +244,9 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
   def outgoingConnection(host: String, port: Int = 80,
                          localAddress: Option[InetSocketAddress] = None,
                          settings:     ClientConnectionSettings  = ClientConnectionSettings(system),
-                         log:          LoggingAdapter            = system.log): Flow[HttpRequest, HttpResponse, Future[OutgoingConnection]] =
-    _outgoingConnection(host, port, localAddress, settings, ConnectionContext.noEncryption(), log)
+                         log:          LoggingAdapter            = system.log,
+                         swedish:      SwedishArmyKnife): Flow[HttpRequest, HttpResponse, Future[OutgoingConnection]] =
+    _outgoingConnection(host, port, localAddress, settings, ConnectionContext.noEncryption(), log, swedish)
 
   /**
    * Same as [[#outgoingConnection]] but for encrypted (HTTPS) connections.
@@ -260,8 +261,9 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
                               connectionContext: HttpsConnectionContext    = defaultClientHttpsContext,
                               localAddress:      Option[InetSocketAddress] = None,
                               settings:          ClientConnectionSettings  = ClientConnectionSettings(system),
-                              log:               LoggingAdapter            = system.log): Flow[HttpRequest, HttpResponse, Future[OutgoingConnection]] =
-    _outgoingConnection(host, port, localAddress, settings, connectionContext, log)
+                              log:               LoggingAdapter            = system.log,
+                              swedish:           SwedishArmyKnife): Flow[HttpRequest, HttpResponse, Future[OutgoingConnection]] =
+    _outgoingConnection(host, port, localAddress, settings, connectionContext, log, swedish)
 
   private def _outgoingConnection(
     host:              String,
@@ -269,9 +271,10 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
     localAddress:      Option[InetSocketAddress],
     settings:          ClientConnectionSettings,
     connectionContext: ConnectionContext,
-    log:               LoggingAdapter): Flow[HttpRequest, HttpResponse, Future[OutgoingConnection]] = {
+    log:               LoggingAdapter,
+    swedish:           SwedishArmyKnife): Flow[HttpRequest, HttpResponse, Future[OutgoingConnection]] = {
     val hostHeader = if (port == connectionContext.defaultPort) Host(host) else Host(host, port)
-    val layer = clientLayer(hostHeader, settings, log)
+    val layer = clientLayer(hostHeader, settings, log, swedish)
     layer.joinMat(_outgoingTlsConnectionLayer(host, port, localAddress, settings, connectionContext, log))(Keep.right)
   }
 
@@ -298,8 +301,8 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
    * Constructs a [[akka.http.scaladsl.Http.ClientLayer]] stage using the configured default [[akka.http.scaladsl.settings.ClientConnectionSettings]],
    * configured using the `akka.http.client` config section.
    */
-  def clientLayer(hostHeader: Host): ClientLayer =
-    clientLayer(hostHeader, ClientConnectionSettings(system))
+  def clientLayer(hostHeader: Host, swedish: SwedishArmyKnife): ClientLayer =
+    clientLayer(hostHeader, ClientConnectionSettings(system), swedish = swedish)
 
   /**
    * Constructs a [[akka.http.scaladsl.Http.ClientLayer]] stage using the given [[akka.http.scaladsl.settings.ClientConnectionSettings]].
@@ -307,8 +310,9 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
   def clientLayer(
     hostHeader: Host,
     settings:   ClientConnectionSettings,
-    log:        LoggingAdapter           = system.log): ClientLayer =
-    OutgoingConnectionBlueprint(hostHeader, settings, log)
+    log:        LoggingAdapter           = system.log,
+    swedish:    SwedishArmyKnife): ClientLayer =
+    OutgoingConnectionBlueprint(hostHeader, settings, log, swedish)
 
   // ** CONNECTION POOL ** //
 
@@ -498,8 +502,9 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
   def webSocketClientLayer(
     request:  WebSocketRequest,
     settings: ClientConnectionSettings = ClientConnectionSettings(system),
-    log:      LoggingAdapter           = system.log): Http.WebSocketClientLayer =
-    WebSocketClientBlueprint(request, settings, log)
+    log:      LoggingAdapter           = system.log,
+    swedish:  SwedishArmyKnife): Http.WebSocketClientLayer =
+    WebSocketClientBlueprint(request, settings, log, swedish)
 
   /**
    * Constructs a flow that once materialized establishes a WebSocket connection to the given Uri.
@@ -508,6 +513,7 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
    */
   def webSocketClientFlow(
     request:           WebSocketRequest,
+    swedish:           SwedishArmyKnife,
     connectionContext: ConnectionContext         = defaultClientHttpsContext,
     localAddress:      Option[InetSocketAddress] = None,
     settings:          ClientConnectionSettings  = ClientConnectionSettings(system),
@@ -526,7 +532,7 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
     val host = uri.authority.host.address
     val port = uri.effectivePort
 
-    webSocketClientLayer(request, settings, log)
+    webSocketClientLayer(request, settings, log, swedish)
       .joinMat(_outgoingTlsConnectionLayer(host, port, localAddress, settings, ctx, log))(Keep.left)
   }
 
@@ -537,11 +543,12 @@ class HttpExt(private val config: Config)(implicit val system: ActorSystem) exte
   def singleWebSocketRequest[T](
     request:           WebSocketRequest,
     clientFlow:        Flow[Message, Message, T],
+    swedish:           SwedishArmyKnife,
     connectionContext: ConnectionContext         = defaultClientHttpsContext,
     localAddress:      Option[InetSocketAddress] = None,
     settings:          ClientConnectionSettings  = ClientConnectionSettings(system),
     log:               LoggingAdapter            = system.log)(implicit mat: Materializer): (Future[WebSocketUpgradeResponse], T) =
-    webSocketClientFlow(request, connectionContext, localAddress, settings, log)
+    webSocketClientFlow(request, swedish, connectionContext, localAddress, settings, log)
       .joinMat(clientFlow)(Keep.both).run()
 
   /**

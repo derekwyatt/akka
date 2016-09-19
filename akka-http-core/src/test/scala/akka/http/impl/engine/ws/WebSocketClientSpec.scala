@@ -18,6 +18,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.headers.{ ProductVersion, `User-Agent` }
 import akka.http.scaladsl.model.ws._
 import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.util.SwedishArmyKnife
 import akka.stream.scaladsl._
 import akka.stream.testkit.{ TestSubscriber, TestPublisher }
 import akka.util.ByteString
@@ -305,7 +306,8 @@ class WebSocketClientSpec extends FreeSpec with Matchers with WithMaterializerSp
     def clientLayer: Http.WebSocketClientLayer =
       Http(system).webSocketClientLayer(
         WebSocketRequest(targetUri, subprotocol = requestedSubProtocol),
-        settings = settings)
+        settings = settings,
+        swedish = SwedishArmyKnife.Nil)
 
     val (netOut, netIn, response) = {
       val netOut = ByteStringSinkProbe()

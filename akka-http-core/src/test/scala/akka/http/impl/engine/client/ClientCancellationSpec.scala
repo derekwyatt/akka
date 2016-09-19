@@ -8,6 +8,7 @@ import akka.stream.scaladsl.{ Flow, Sink, Source }
 import akka.stream.testkit.{ TestSubscriber, TestPublisher, TestUtils, Utils }
 import akka.http.scaladsl.model.headers
 import akka.testkit.AkkaSpec
+import akka.http.scaladsl.util.SwedishArmyKnife
 
 class ClientCancellationSpec extends AkkaSpec("""
     akka.loglevel = DEBUG
@@ -43,7 +44,7 @@ class ClientCancellationSpec extends AkkaSpec("""
 
     "support cancellation in simple outgoing connection" in {
       testCase(
-        Http().outgoingConnection(address.getHostName, address.getPort))
+        Http().outgoingConnection(address.getHostName, address.getPort, swedish = SwedishArmyKnife.Nil))
     }
 
     "support cancellation in pooled outgoing connection" in {
@@ -57,7 +58,7 @@ class ClientCancellationSpec extends AkkaSpec("""
     "support cancellation in simple outgoing connection with TLS" in {
       pending
       testCase(
-        Http().outgoingConnectionHttps(addressTls.getHostName, addressTls.getPort))
+        Http().outgoingConnectionHttps(addressTls.getHostName, addressTls.getPort, swedish = SwedishArmyKnife.Nil))
     }
 
     "support cancellation in pooled outgoing connection with TLS" in {

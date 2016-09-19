@@ -17,6 +17,7 @@ import akka.http.scaladsl.{ Http, TestUtils }
 import akka.http.scaladsl.model._
 import akka.stream.testkit.Utils
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
+import akka.http.scaladsl.util.SwedishArmyKnife
 
 class HighLevelOutgoingConnectionSpec extends AkkaSpec {
   implicit val materializer = ActorMaterializer(ActorMaterializerSettings(system).withFuzzing(true))
@@ -34,7 +35,7 @@ class HighLevelOutgoingConnectionSpec extends AkkaSpec {
       val result = Source.fromIterator(() ⇒ Iterator.from(1))
         .take(N)
         .map(id ⇒ HttpRequest(uri = s"/r$id"))
-        .via(Http().outgoingConnection(serverHostName, serverPort))
+        .via(Http().outgoingConnection(serverHostName, serverPort, swedish = SwedishArmyKnife.Nil))
         .mapAsync(4)(_.entity.toStrict(1.second))
         .map { r ⇒ val s = r.data.utf8String; log.debug(s); s.toInt }
         .runFold(0)(_ + _)
@@ -49,7 +50,7 @@ class HighLevelOutgoingConnectionSpec extends AkkaSpec {
         r ⇒ HttpResponse(entity = r.uri.toString.reverse.takeWhile(Character.isDigit).reverse),
         serverHostName, serverPort)
 
-      val connFlow = Http().outgoingConnection(serverHostName, serverPort)
+      val connFlow = Http().outgoingConnection(serverHostName, serverPort, swedish = SwedishArmyKnife.Nil)
 
       val C = 4
       val doubleConnection = Flow.fromGraph(GraphDSL.create() { implicit b ⇒

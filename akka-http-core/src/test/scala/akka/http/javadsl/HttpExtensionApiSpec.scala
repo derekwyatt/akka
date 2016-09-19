@@ -16,6 +16,7 @@ import akka.actor.ActorSystem
 import akka.event.NoLogging
 import akka.http.javadsl.model._
 import akka.http.scaladsl.TestUtils
+import akka.http.scaladsl.util.SwedishArmyKnife
 import akka.japi.Function
 import akka.stream.{ ActorMaterializer }
 import akka.stream.javadsl.{ Source, Flow, Sink, Keep }
@@ -119,7 +120,7 @@ class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll
         .asJava
       val binding = http.bindAndHandle(flow, toHost(host, port), materializer)
 
-      val (_, completion) = http.outgoingConnection(toHost(host, port))
+      val (_, completion) = http.outgoingConnection(toHost(host, port), swedish = SwedishArmyKnife.Nil)
         .runWith(Source.single(HttpRequest.create("/abc")), Sink.head(), materializer).toScala
 
       waitFor(completion)
@@ -133,7 +134,7 @@ class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll
         .asJava
       val binding = http.bindAndHandle(flow, toHost(host, port), materializer)
 
-      val (_, completion) = http.outgoingConnection(toHost(host, port))
+      val (_, completion) = http.outgoingConnection(toHost(host, port), swedish = SwedishArmyKnife.Nil)
         .runWith(Source.single(HttpRequest.create("/abc")), Sink.head(), materializer).toScala
 
       waitFor(completion)
@@ -147,7 +148,7 @@ class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll
         .asJava
       val binding = http.bindAndHandle(flow, toHost(host, port), serverSettings, loggingAdapter, materializer)
 
-      val (_, completion) = http.outgoingConnection(toHost(host, port))
+      val (_, completion) = http.outgoingConnection(toHost(host, port), swedish = SwedishArmyKnife.Nil)
         .runWith(Source.single(HttpRequest.create("/abc")), Sink.head(), materializer).toScala
 
       waitFor(completion)
@@ -354,20 +355,20 @@ class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll
       // TODO actually cover these with runtime tests, compile only for now
       pending
       val connectionSettings = ClientConnectionSettings.create(system)
-      http.clientLayer(headers.Host.create("example.com"))
-      http.clientLayer(headers.Host.create("example.com"), connectionSettings)
-      http.clientLayer(headers.Host.create("example.com"), connectionSettings, loggingAdapter)
+      http.clientLayer(headers.Host.create("example.com"), swedish = SwedishArmyKnife.Nil)
+      http.clientLayer(headers.Host.create("example.com"), connectionSettings, swedish = SwedishArmyKnife.Nil)
+      http.clientLayer(headers.Host.create("example.com"), connectionSettings, loggingAdapter, swedish = SwedishArmyKnife.Nil)
     }
 
     "create an outgoing connection (with a string)" in {
       // this one cannot be tested because it wants to run on port 80
       pending
-      http.outgoingConnection("example.com"): Flow[HttpRequest, HttpResponse, CompletionStage[OutgoingConnection]]
+      http.outgoingConnection("example.com", swedish = SwedishArmyKnife.Nil): Flow[HttpRequest, HttpResponse, CompletionStage[OutgoingConnection]]
     }
 
     "create an outgoing connection (with a ConnectHttp)" in {
       val (host, port, binding) = runServer()
-      val flow = http.outgoingConnection(toHost(host, port))
+      val flow = http.outgoingConnection(toHost(host, port), swedish = SwedishArmyKnife.Nil)
 
       val response = Source.single(get(host, port))
         .via(flow)
@@ -384,7 +385,7 @@ class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll
         toHost(host, port),
         Optional.empty(),
         ClientConnectionSettings.create(system),
-        NoLogging)
+        NoLogging, swedish = SwedishArmyKnife.Nil)
 
       val response = Source.single(get(host, port))
         .via(flow)
@@ -421,7 +422,7 @@ class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll
 
     "interact with a websocket through a flow (with with one parameter)" in {
       val (host, port, binding) = runWebsocketServer()
-      val flow = http.webSocketClientFlow(WebSocketRequest.create(s"ws://$host:$port"))
+      val flow = http.webSocketClientFlow(WebSocketRequest.create(s"ws://$host:$port"), swedish = SwedishArmyKnife.Nil)
       val pair = Source.single(TextMessage.create("hello"))
         .viaMat(flow, Keep.right[NotUsed, CompletionStage[WebSocketUpgradeResponse]])
         .toMat(Sink.head[Message](), Keep.both[CompletionStage[WebSocketUpgradeResponse], CompletionStage[Message]])
@@ -434,7 +435,7 @@ class HttpExtensionApiSpec extends WordSpec with Matchers with BeforeAndAfterAll
 
     "interact with a websocket through a flow (with five parameters)" in {
       val (host, port, binding) = runWebsocketServer()
-      val flow = http.webSocketClientFlow(WebSocketRequest.create(s"ws://$host:$port"), connectionContext, Optional.empty(), ClientConnectionSettings.create(system), loggingAdapter)
+      val flow = http.webSocketClientFlow(WebSocketRequest.create(s"ws://$host:$port"), connectionContext, Optional.empty(), ClientConnectionSettings.create(system), loggingAdapter, swedish = SwedishArmyKnife.Nil)
       val pair = Source.single(TextMessage.create("hello"))
         .viaMat(flow, Keep.right[NotUsed, CompletionStage[WebSocketUpgradeResponse]])
         .toMat(Sink.head[Message](), Keep.both[CompletionStage[WebSocketUpgradeResponse], CompletionStage[Message]])

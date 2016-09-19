@@ -15,6 +15,7 @@ import akka.event.NoLogging
 import akka.util.ByteString
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers._
+import akka.http.scaladsl.util.SwedishArmyKnife
 import akka.http.impl.util._
 import akka.stream.scaladsl._
 import akka.stream.ActorMaterializer
@@ -323,7 +324,7 @@ class RequestRendererSpec extends FreeSpec with Matchers with BeforeAndAfterAll 
   class TestSetup(
     val userAgent: Option[`User-Agent`] = Some(`User-Agent`("akka-http/1.0.0")),
     serverAddress: InetSocketAddress    = new InetSocketAddress("test.com", 8080))
-    extends HttpRequestRendererFactory(userAgent, requestHeaderSizeHint = 64, NoLogging) {
+    extends HttpRequestRendererFactory(userAgent, requestHeaderSizeHint = 64, NoLogging, SwedishArmyKnife.Nil) {
 
     def awaitAtMost: FiniteDuration = 3.seconds
 

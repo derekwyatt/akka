@@ -39,6 +39,7 @@ public class WSEchoTestClientApp {
 
     public static void main(String[] args) throws Exception {
         ActorSystem system = ActorSystem.create();
+		akka.http.scaladsl.util.SwedishArmyKnife nilSwedish = akka.http.scaladsl.util.SwedishArmyKnife$.MODULE$.nil();
 
         try {
             final Materializer materializer = ActorMaterializer.create(system);
@@ -71,7 +72,8 @@ public class WSEchoTestClientApp {
                 Http.get(system).singleWebSocketRequest(
                     WebSocketRequest.create("ws://echo.websocket.org"),
                     echoClient,
-                    materializer
+                    materializer,
+					nilSwedish
                 ).second();
 
             List<String> messages = result.toCompletableFuture().get(10, TimeUnit.SECONDS);
